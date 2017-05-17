@@ -29,16 +29,7 @@ fn main() {
         _ => [""],
     };
 
-    // TODO(sduquette): the package build should fail if this command fails.
-    if !build_helper::target::triple().env().unwrap_or("").contains("msvc") {
-        let _ = Command::new("./make.sh").args(&make_args).current_dir("unicorn").status();
-
-        let unicorn = "libunicorn.a";
-        let _ = Command::new("cp").current_dir("unicorn").arg(&unicorn).arg(&out_dir).status();
-        
-        link_search(Some(build_helper::SearchKind::Native), build_helper::out_dir());
-        link_lib(Some(build_helper::LibKind::Static), "unicorn");
-    } else {
+    if build_helper::target::triple().env().unwrap_or("").contains("msvc") {
         let libpath = env::var("LIB").unwrap();
         env::set_var("LIB", libpath + ";" + &out_dir);
         
@@ -50,7 +41,7 @@ fn main() {
         let properties = "/p:OutDir=".to_owned() + &out_dir + "/;" + &platform_toolset
                          + "useenv=true;Configuration=Release";
         let status = match Command::new("msbuild")
-                            .args(&["msvc/unicorn.sln", &properties])
+                            .args(&["msvc/unicorn.sln", "/t:unicorn_static", &properties])
                             .current_dir("unicorn").status() {
             Ok(status) => status,
             Err(e) => fail(&format!("failed to execute command: {}", e)),
@@ -60,8 +51,17 @@ fn main() {
         }
 
         link_search(Some(build_helper::SearchKind::Native), build_helper::out_dir());
+        link_lib(Some(build_helper::LibKind::Static), "unicorn_static");
+    } else {
+        // TODO(sduquette): the package build should fail if this command fails.
+        let _ = Command::new("./make.sh").args(&make_args).current_dir("unicorn").status();
+
+        let unicorn = "libunicorn.a";
+        let _ = Command::new("cp").current_dir("unicorn").arg(&unicorn).arg(&out_dir).status();
+        
+        link_search(Some(build_helper::SearchKind::Native), build_helper::out_dir());
         link_lib(Some(build_helper::LibKind::Static), "unicorn");
-    }    
+    }
 }
 
 fn fail(s: &str) -> ! {
