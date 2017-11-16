@@ -2,7 +2,7 @@ extern crate unicorn;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use unicorn::{Cpu, CpuARM, CpuMIPS, CpuX86};
+use unicorn::{Cpu, CpuARM, CpuARM64, CpuMIPS, CpuX86};
 
 pub static X86_REGISTERS: [unicorn::RegisterX86; 145] = [
     unicorn::RegisterX86::AH,
@@ -504,6 +504,47 @@ fn emulate_arm() {
 }
 
 #[test]
+fn emulate_arm64() {
+    let arm_code64: Vec<u8> = vec![0xff, 0x33, 0x00, 0xd1]; // sub    sp, sp, #0xc
+
+    // unicorn::Mode::LITTLE_ENDIAN == unicorn::Mode::ARM
+    let mut emu =
+        CpuARM64::new(unicorn::Mode::LITTLE_ENDIAN).expect("failed to instantiate emulator");
+    assert_eq!(emu.reg_write(unicorn::RegisterARM64::X1, 123), Ok(()));
+    assert_eq!(emu.reg_read(unicorn::RegisterARM64::X1), Ok((123)));
+
+    // Attempt to write to memory before mapping it.
+    assert_eq!(
+        emu.mem_write(0x1000, &arm_code64),
+        (Err(unicorn::Error::WRITE_UNMAPPED))
+    );
+
+    assert_eq!(emu.mem_map(0x1000, 0x4000, unicorn::PROT_ALL), Ok(()));
+    assert_eq!(emu.mem_write(0x1000, &arm_code64), Ok(()));
+    assert_eq!(
+        emu.mem_read(0x1000, arm_code64.len()),
+        Ok(arm_code64.clone())
+    );
+
+    assert_eq!(emu.reg_write(unicorn::RegisterARM64::SP, 12), Ok(()));
+    assert_eq!(emu.reg_write(unicorn::RegisterARM64::X0, 10), Ok(()));
+
+    // ARM checks the least significant bit of the address to know
+    // if the code is in Thumb mode.
+    assert_eq!(
+        emu.emu_start(
+            0x1000,
+            (0x1000 + arm_code64.len()) as u64,
+            10 * unicorn::SECOND_SCALE,
+            1000,
+        ),
+        Ok(())
+    );
+    assert_eq!(emu.reg_read(unicorn::RegisterARM64::SP), Ok((0)));
+    assert_eq!(emu.reg_read(unicorn::RegisterARM64::X0), Ok((10)));
+}
+
+#[test]
 fn emulate_mips() {
     let mips_code32 = vec![0x56, 0x34, 0x21, 0x34]; // ori $at, $at, 0x3456;
 
@@ -628,7 +669,7 @@ fn x86_context_save_and_restore () {
         /* now, save the context... */
         let context = emu.context_save();
         let context = context.unwrap();
-        
+
         /* and create a new emulator, into which we will "restore" that context */
         let emu2 = CpuX86::new(mode).expect("failed to instantiate emu2");
         assert_eq!(emu2.context_restore(&context), Ok(()));
