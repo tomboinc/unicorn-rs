@@ -611,6 +611,10 @@ impl Unicorn {
         }
     }
 
+    pub fn handle(&self) -> libc::size_t {
+        self.handle
+    }
+
     /// Write an unsigned value register.
     ///
     /// Note : The register is defined as an i32 to be able to support the
