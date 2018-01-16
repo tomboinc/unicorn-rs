@@ -155,6 +155,7 @@ pub enum MemHookType {
     MEM_INVALID = (0b111111 << 4), // Hook type for all events of illegal memory access
     MEM_VALID = (0b111 << 10), // Hook type for all events of valid memory access
     MEM_ALL = 0b111111111 << 4, // Hook type for all events.
+    MEM_READ_WRITE = (0b11 << 10), // Hook type for read and write NOTE: dirty hack!
 }
 
 #[repr(C)]
