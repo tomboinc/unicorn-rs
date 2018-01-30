@@ -265,4 +265,10 @@ pub enum RegisterARM64 {
 
     // pseudo registers
     PC = 260,
+
+    // add by gunyarakun
+    CPACR_EL1 = 261,
+    TPIDR_EL0 = 262,
+    TPIDRRO_EL0 = 263,
+    TPIDR_EL1 = 264,
 }
